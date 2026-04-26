@@ -99,6 +99,11 @@ hw.ncpu: 12
 
 ## Tabela de tempo de execução
 
+Para a construção do gráfico de escalabilidade, cada experimento foi executado três vezes para cada valor de N (2, 4 e 8), 
+e os tempos apresentados correspondem à média dessas execuções. Essa abordagem foi adotada para reduzir variações 
+ocasionais causadas pelo sistema operacional, como escalonamento de processos e interferência de outras tarefas, 
+garantindo maior confiabilidade e consistência nos resultados apresentados.
+
 | N | T1 (sem mutex) | T2 (mutex) | P1 (sem sync) | P2 (com sync) |
 |--|----------------|-----------|--------------|---------------|
 | 2 | ~0.97s | ~7.9s | ~0.71s |
