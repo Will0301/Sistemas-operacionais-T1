@@ -14,6 +14,7 @@ Fillipo Novo Mor, na Pontifícia Universidade Católica do Rio Grande do Sul (PU
     - [Passo 4 - Processos sem sincronização (P1)](#passo-4---processos-sem-sincronização-p1)
     - [Passo 5 - Processos com semáforo (P2)](#passo-5---processos-com-semáforo-p2)
     - [Para medir tempo de execução](#para-medir-tempo-de-execução)
+    - [Removendo classes de execução](#clean-remover-executaveis)
 - [Ambiente e Hardware](#ambiente-e-hardware)
 - [Tabela de tempo de execução](#tabela-de-tempo-de-execução)
 - [Análise de Corrupção](#análise-de-corrupção)
@@ -84,6 +85,10 @@ time make runP1 N=8
 time make runP2 N=2
 time make runP2 N=4
 time make runP2 N=8
+```
+### Clean (Remover executaveis)
+```bash
+make clean
 ```
 
 ## Ambiente e Hardware
