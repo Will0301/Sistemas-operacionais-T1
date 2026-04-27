@@ -22,7 +22,6 @@ int main(int argc, char *argv[]) {
 
     *counter = 0;
 
-    // 🔥 garante que não existe semáforo antigo
     sem_unlink("/semaforo_grupo_syscall");
 
     sem_t *sem = sem_open("/semaforo_grupo_syscall", O_CREAT, 0644, 1);
@@ -39,7 +38,6 @@ int main(int argc, char *argv[]) {
                 sem_post(sem);
             }
 
-            // filho fecha o semáforo antes de sair
             sem_close(sem);
             exit(0);
         }
