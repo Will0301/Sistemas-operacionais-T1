@@ -118,7 +118,7 @@ process_sem.c -> Nosso P2, programa com processos e utilizando dos semáforos
 ## Tabela de tempo de execução
 
 Para a construção do gráfico de escalabilidade, os experimentos foram executados em dois ambientes distintos, 
-correspondentes às arquiteturas x86 e ARM. Em cada ambiente, cada experimento foi executado três vezes para cada valor 
+correspondentes às arquiteturas x86, ARM e no codespace. Em cada ambiente, cada experimento foi executado três vezes para cada valor 
 de N (2, 4 e 8), sendo apresentados os tempos médios dessas execuções. Essa abordagem foi adotada para reduzir variações 
 ocasionais causadas pelo sistema operacional, como escalonamento de processos e interferência de outras tarefas, 
 garantindo maior confiabilidade, consistência dos resultados e permitindo uma comparação mais precisa entre as diferentes 
@@ -139,92 +139,124 @@ arquiteturas.
 | 4 | 1.004s | 35.285s | 0.850s | 1m30.724s |
 | 8 | 1.089s | 38.774s | 1.071s | 2m15.551s |
 
+## Codespace
+| N | T1 - Threads (sem mutex) | T2 - Threads (mutex) | P1 - Processos (sem sync) | P2 - Processos (semáforo) |
+|--|---------------------------|----------------------|----------------------------|----------------------------|
+| 2 | 2.682s | 25.724s | 2.879s | 25.787s |
+| 4 | 2.776s | 25.643s | 2.919s | 43.734s |
+| 8 | 2.876s | 27.689s | 2.546s | 2m1.016s |
+
 ## Análise de Corrupção
 
-Nos experimentos T1 e P1, o valor final do contador não atingiu 1 bilhão devido à ocorrência de condições de corrida 
+Nos experimentos T1 e P1, o valor final do contador não atingiu 1 bilhão devido à ocorrência de condições de corrida
 (race conditions). A operação de incremento (counter++) não é atômica, sendo composta por leitura, incremento e escrita.
-Quando múltiplas threads ou processos executam essa operação simultaneamente, ocorrem sobrescritas de valores, resultando 
+Quando múltiplas threads ou processos executam essa operação simultaneamente, ocorrem sobrescritas de valores, resultando
 na perda de incrementos.
-Observou-se que, quanto maior o número de workers (N), menor o valor final obtido, evidenciando o aumento da concorrência 
-e, consequentemente, das colisões de escrita. Em sistemas com múltiplos núcleos, esse efeito é amplificado devido ao 
-paralelismo real proporcionado pelo hardware.
+
+Observa-se um comportamento claro: **quanto maior o número de workers (N), maior o erro no valor final**. 
+Pode ser observado nas [evidências do projeto](#evidências).
+
+Isso ocorre porque o aumento de paralelismo intensifica a quantidade de acessos simultâneos à variável compartilhada, elevando drasticamente
+a probabilidade de colisões.
+
+Esse padrão é consistente em todos os ambientes testados (local e Codespace), evidenciando que o problema não está no
+hardware em si, mas no modelo de concorrência sem sincronização. Em outras palavras, aumentar N melhora o desempenho,
+mas degrada progressivamente a corretude do resultado.
 
 ## Análise do gráfico
+#### Arquitetura Arm
 ![Escalabilidade em ARM](graph/grafico_arm.png)
+
+#### Arquitetura X86
 ![Escalabilidade em x86](graph/grafico_x86.png)
 
+#### Codespace
+![codespace](graph/grafico_codespaces.png)
+
 O conjunto de gráficos apresenta a relação entre o tempo de execução e o número de workers (N) para os diferentes modelos 
-de execução avaliados, considerando duas arquiteturas distintas: ARM e x86.
-Em ambos os ambientes, observa-se que os cenários sem sincronização (T1 e P1) apresentam clara redução no tempo de 
-execução à medida que o número de threads/processos aumenta, evidenciando boa escalabilidade devido ao paralelismo efetivo. 
-No entanto, conforme discutido anteriormente, esses cenários produzem resultados incorretos devido à ocorrência de condições 
-de corrida.
-Por outro lado, o cenário com sincronização via mutex (T2) mantém o valor correto do contador em ambas as arquiteturas, 
-porém apresenta aumento significativo no tempo de execução, especialmente ao passar de 2 para 4 workers. Esse comportamento 
-evidencia o impacto do overhead de sincronização e da contenção do lock, que limita o paralelismo. Nota-se ainda que, mesmo 
-com o aumento do número de threads, o desempenho não melhora, pois a região crítica impõe execução praticamente serial.
-O cenário com processos e semáforo (P2) apresenta o maior custo de execução nos dois ambientes, sendo significativamente mais 
-lento devido ao uso intensivo de chamadas de sistema para controle de acesso à memória compartilhada. Contudo, destaca-se 
-uma diferença relevante entre as arquiteturas: enquanto no ambiente x86 os tempos de execução se mantêm na ordem de minutos, 
-na arquitetura ARM os tempos são substancialmente maiores, chegando a dezenas de minutos. Essa diferença evidencia o impacto 
-da arquitetura na eficiência das operações de sincronização, especialmente em workloads fortemente dependentes de syscalls.
-A utilização de escala logarítmica no eixo Y permite visualizar adequadamente as diferenças entre os cenários, uma vez que 
-os tempos variam em diferentes ordens de magnitude. As linhas tracejadas representam tendências aproximadas, reforçando os 
-comportamentos observados: ganho de desempenho nos cenários sem sincronização e perda de escalabilidade quando mecanismos 
-de controle de concorrência são introduzidos, com impacto ainda mais acentuado na arquitetura ARM.
+de execução, considerando dois contextos principais: execução local e execução em ambiente remoto (Codespace).
+Nos cenários sem sincronização (T1 e P1), observa-se uma redução no tempo de execução à medida que N aumenta, 
+evidenciando ganho de paralelismo. Entretanto, esse ganho ocorre à custa da corretude dos resultados, conforme 
+discutido na análise de corrupção. Verifica-se um padrão consistente em que o aumento de N intensifica o erro acumulado 
+no contador, devido à maior incidência de condições de corrida.
+Por outro lado, nos cenários com sincronização (T2 e P2), o valor final do contador permanece correto independentemente 
+do número de workers. Em contrapartida, há um aumento significativo no tempo de execução, decorrente do custo associado 
+ao controle de acesso à região crítica, o que limita o paralelismo efetivo.
+Ao considerar o ambiente de execução em Codespace, observa-se um comportamento distinto em relação à execução local. 
+De forma geral, os tempos de execução são mais elevados e apresentam maior variabilidade, além de um ganho de desempenho 
+menos expressivo com o aumento de N. Esse comportamento pode ser atribuído ao overhead inerente ao ambiente remoto, 
+caracterizado pelo compartilhamento de recursos e pela virtualização.
+Dessa forma, enquanto a execução local tende a oferecer maior previsibilidade e melhor aproveitamento do paralelismo, 
+o Codespace introduz fatores adicionais que impactam negativamente a escalabilidade, especialmente em cenários com maior 
+nível de concorrência.
 
 ## Observações técnicas
 
-s valores 0644 e 0666 representam permissões de acesso no padrão Unix, expressas em notação octal, sendo utilizados para 
-definir quem pode ler ou escrever em recursos do sistema, como semáforos e memória compartilhada. Cada dígito corresponde, 
-respectivamente, ao dono, grupo e outros usuários. O valor 0644 concede permissão de leitura e escrita ao dono (6 = 4 + 2), 
-enquanto grupo e outros possuem apenas leitura (4). Já o valor 0666 permite leitura e escrita para todos os usuários. 
-Além disso, a flag IPC_CREAT indica que o recurso deve ser criado caso ainda não exista. No contexto deste trabalho, 
+## Observações técnicas
+
+Os valores `0644` e `0666` representam permissões de acesso no padrão Unix, expressas em notação octal, sendo utilizados para
+definir quem pode ler ou escrever em recursos do sistema, como semáforos e memória compartilhada. Cada dígito corresponde,
+respectivamente, ao dono, grupo e outros usuários. O valor `0644` concede permissão de leitura e escrita ao dono (6 = 4 + 2),
+enquanto grupo e outros possuem apenas leitura (4). Já o valor `0666` permite leitura e escrita para todos os usuários.
+Além disso, a flag `IPC_CREAT` indica que o recurso deve ser criado caso ainda não exista. No contexto deste trabalho,
 essas permissões foram utilizadas para simplificar o acesso e evitar problemas de autorização durante a execução.
-Durante a implementação do experimento com processos e semáforos (P2), foi observado um comportamento inicial de aparente 
-travamento do programa, interpretado como um possível loop infinito. No entanto, identificou-se que a causa estava 
-relacionada ao uso de semáforos nomeados (sem_open), que persistem no sistema mesmo após o término do processo. 
-Quando uma execução anterior era interrompida abruptamente, o semáforo podia permanecer em estado inconsistente, 
-fazendo com que chamadas subsequentes a sem_wait bloqueassem indefinidamente. Esse problema foi solucionado com a 
-utilização de sem_unlink antes da criação do semáforo, garantindo um estado limpo a cada execução.
-Adicionalmente, verificou-se que o uso de semáforos introduz um overhead significativo, tornando a execução substancialmente 
-mais lenta, especialmente para grandes volumes de operações. Isso ocorre devido ao custo elevado das chamadas de sistema 
-envolvidas em cada operação de sincronização, já que cada incremento do contador exige operações de bloqueio e desbloqueio 
+
+Durante a implementação do experimento com processos e semáforos (P2), foi observado um comportamento inicial de aparente
+travamento do programa, interpretado como um possível loop infinito. No entanto, identificou-se que a causa estava
+relacionada ao uso de semáforos nomeados (`sem_open`), que persistem no sistema mesmo após o término do processo.
+Quando uma execução anterior era interrompida abruptamente, o semáforo podia permanecer em estado inconsistente,
+fazendo com que chamadas subsequentes a `sem_wait` bloqueassem indefinidamente. Esse problema foi solucionado com a
+utilização de `sem_unlink` antes da criação do semáforo, garantindo um estado limpo a cada execução.
+
+Adicionalmente, verificou-se que o uso de semáforos introduz um overhead significativo, tornando a execução substancialmente
+mais lenta, especialmente para grandes volumes de operações. Isso ocorre devido ao custo elevado das chamadas de sistema
+envolvidas em cada operação de sincronização, já que cada incremento do contador exige operações de bloqueio e desbloqueio
 controladas pelo sistema operacional.
-Com a execução dos experimentos em diferentes arquiteturas (x86 e ARM), foi possível observar uma diferença significativa 
-de desempenho, especialmente no cenário P2 (processos com semáforo). Notou-se que, na arquitetura x86 (Intel Core i5-14600KF), 
-o tempo de execução foi consideravelmente menor em comparação com a arquitetura ARM. Essa diferença ocorre principalmente 
-devido a fatores arquiteturais e de implementação de sistema operacional. Processadores x86 tendem a possuir maior 
-desempenho em operações que envolvem chamadas de sistema intensivas, como sem_wait e sem_post, além de apresentarem maior 
-frequência de clock e otimizações mais maduras para execução concorrente. Por outro lado, arquiteturas ARM, embora mais 
-eficientes energeticamente, geralmente possuem maior latência em operações de sincronização e menor desempenho em workloads 
-altamente dependentes de syscalls. Além disso, o experimento P2 é fortemente limitado pelo custo de sincronização, já que 
-cada incremento exige duas chamadas de sistema. Nesse contexto, qualquer diferença na eficiência dessas operações entre 
+
+Com a execução dos experimentos em diferentes arquiteturas (x86 e ARM), foi possível observar uma diferença significativa
+de desempenho, especialmente no cenário P2 (processos com semáforo). Notou-se que, na arquitetura x86 (Intel Core i5-14600KF),
+o tempo de execução foi consideravelmente menor em comparação com a arquitetura ARM. Essa diferença ocorre principalmente
+devido a fatores arquiteturais e de implementação de sistema operacional. Processadores x86 tendem a possuir maior
+desempenho em operações que envolvem chamadas de sistema intensivas, como `sem_wait` e `sem_post`, além de apresentarem maior
+frequência de clock e otimizações mais maduras para execução concorrente. Por outro lado, arquiteturas ARM, embora mais
+eficientes energeticamente, geralmente possuem maior latência em operações de sincronização e menor desempenho em workloads
+altamente dependentes de syscalls. Além disso, o experimento P2 é fortemente limitado pelo custo de sincronização, já que
+cada incremento exige duas chamadas de sistema. Nesse contexto, qualquer diferença na eficiência dessas operações entre
 arquiteturas se torna amplificada, justificando a discrepância observada nos tempos de execução.
-Por fim, observou-se que a variação do hardware também influencia diretamente a magnitude dos erros nos cenários sem 
-sincronização. Em sistemas com múltiplos núcleos, o maior nível de paralelismo aumenta a probabilidade de acessos 
-simultâneos à variável compartilhada, intensificando a ocorrência de condições de corrida e, consequentemente, a perda de 
+
+Por fim, observou-se que a variação do hardware também influencia diretamente a magnitude dos erros nos cenários sem
+sincronização. Em sistemas com múltiplos núcleos, o maior nível de paralelismo aumenta a probabilidade de acessos
+simultâneos à variável compartilhada, intensificando a ocorrência de condições de corrida e, consequentemente, a perda de
 incrementos.
 
 ## Conclusão
-Os resultados obtidos demonstram claramente o trade-off entre desempenho e consistência em sistemas concorrentes. 
-Threads apresentaram menor overhead de criação em comparação com processos, pois são mais leves e compartilham o 
-mesmo espaço de memória, evitando a necessidade de mecanismos adicionais de comunicação. Já os processos possuem maior 
-custo de criação (via fork) e exigem o uso de memória compartilhada (shm) para comunicação, aumentando a complexidade e o overhead.
-Em relação à comunicação, as threads mostraram-se mais eficientes, uma vez que compartilham memória de forma nativa, 
+Os resultados obtidos demonstram de forma clara o trade-off entre desempenho e consistência em sistemas concorrentes.
+As threads apresentaram menor overhead de criação em comparação com processos, por serem mais leves e compartilharem o
+mesmo espaço de memória, eliminando a necessidade de mecanismos adicionais de comunicação. Em contrapartida, os processos
+possuem maior custo de criação (via `fork`) e dependem de memória compartilhada (`shm`) para comunicação, o que aumenta a
+complexidade e o overhead da solução.
+
+No que se refere à comunicação, as threads mostraram-se mais eficientes, uma vez que compartilham memória de forma nativa,
 enquanto processos dependem de mecanismos de IPC, como memória compartilhada e semáforos, que introduzem maior custo operacional.
-Os experimentos também evidenciaram que, embora a ausência de sincronização proporcione melhor desempenho (T1 e P1), ela 
-resulta em inconsistência de dados devido a condições de corrida. Por outro lado, o uso de mecanismos de sincronização 
-(mutex e semáforos) garante a corretude do resultado, porém com impacto significativo no tempo de execução. Esse impacto 
-é especialmente evidente no caso de processos com semáforos (P2), devido ao alto custo das chamadas de sistema envolvidas 
-em cada operação de sincronização.
-Além disso, a comparação entre arquiteturas evidenciou que esse custo não é uniforme: no ambiente x86, os tempos de execução 
-para o cenário P2 foram significativamente menores quando comparados à arquitetura ARM. Isso demonstra que workloads 
-intensivos em sincronização são altamente sensíveis à eficiência das chamadas de sistema e às características do hardware subjacente.
-Assim, conclui-se que threads são mais eficientes para comunicação e possuem menor overhead de criação, enquanto 
-processos oferecem maior isolamento ao custo de desempenho e maior complexidade. Adicionalmente, a escolha do modelo de 
-concorrência e da arquitetura de execução deve considerar o tipo de carga de trabalho, especialmente quando há forte 
-dependência de mecanismos de sincronização.
+
+Os experimentos evidenciaram ainda que, embora a ausência de sincronização proporcione melhor desempenho (T1 e P1), ela
+resulta em inconsistência de dados devido à ocorrência de condições de corrida. Por outro lado, o uso de mecanismos de
+sincronização (mutex e semáforos) garante a corretude dos resultados, porém com impacto significativo no tempo de execução.
+Esse impacto é especialmente evidente no cenário de processos com semáforos (P2), em função do alto custo das chamadas de
+sistema envolvidas em cada operação de sincronização.
+
+Além disso, a execução em ambiente remoto (Codespace) evidenciou que o contexto de execução influencia diretamente o
+desempenho e a escalabilidade. Ambientes compartilhados e virtualizados tendem a introduzir maior overhead e variabilidade,
+reduzindo a previsibilidade dos resultados quando comparados à execução local.
+
+Outro ponto relevante observado foi que, nos cenários sem sincronização, o aumento do número de workers (N) intensifica o
+erro no resultado final. Esse comportamento reforça que desempenho e corretude são objetivos conflitantes em sistemas
+concorrentes, exigindo o uso adequado de mecanismos de sincronização conforme os requisitos da aplicação.
+
+Dessa forma, conclui-se que threads são mais eficientes em termos de comunicação e possuem menor overhead de criação,
+enquanto processos oferecem maior isolamento, ao custo de desempenho e maior complexidade. Adicionalmente, a escolha do
+modelo de concorrência deve considerar não apenas o tipo de carga de trabalho, mas também o ambiente de execução e o nível
+de consistência exigido pela aplicação.
 
 ## Evidências
 
@@ -248,10 +280,86 @@ dependência de mecanismos de sincronização.
 ![x86_threads_mutex_4](Assets/x86_threads_mutex_4.jpeg)
 ![x86_threads_mutex_8](Assets/x86_threads_mutex_8.jpeg)
 
+#### Output codespace
+```
+./threads_no_mutex 2
+Contador final: 623217670
+
+real    0m2.682s
+user    0m4.031s
+sys     0m0.009s
+./threads_no_mutex 4
+Contador final: 346791097
+
+real    0m2.776s
+user    0m4.436s
+sys     0m0.008s
+./threads_no_mutex 8
+Contador final: 220474219
+
+real    0m2.876s
+user    0m4.519s
+sys     0m0.008s
+./threads_mutex 2
+Contador final: 1000000000
+
+real    0m25.724s
+user    0m18.520s
+sys     0m21.807s
+./threads_mutex 4
+Contador final: 1000000000
+
+real    0m25.643s
+user    0m18.817s
+sys     0m22.058s
+./threads_mutex 8
+Contador final: 1000000000
+
+real    0m27.689s
+user    0m20.067s
+sys     0m24.469s
+./processes_free 2
+Contador final: 549925224
+
+real    0m2.879s
+user    0m4.467s
+sys     0m0.010s
+./processes_free 4
+Contador final: 289638921
+
+real    0m2.919s
+user    0m4.742s
+sys     0m0.021s
+./processes_free 8
+Contador final: 177732824
+
+real    0m2.546s
+user    0m3.681s
+sys     0m0.029s
+./process_sem 2
+Contador final: 1000000000
+
+real    0m25.787s
+user    0m16.610s
+sys     0m24.878s
+./process_sem 4
+Contador final: 1000000000
+
+real    0m43.734s
+user    0m20.651s
+sys     0m49.143s
+./process_sem 8
+Contador final: 1000000000
+
+real    2m1.016s
+user    0m38.309s
+sys     2m35.318s
+```
+
 ## Links
-[Vídeo tutorial de pthreads] (https://www.youtube.com/watch?v=ldJ8WGZVXZk&t=305s)
-[Vídeo tutorial de pthreads com Mutex] (https://www.youtube.com/watch?v=raLCgPK-Igc)
-[Argumentos em linha de comando] (https://www.geeksforgeeks.org/cpp/command-line-arguments-in-c-cpp/)
-[Processo e Semáfaros] (https://www.youtube.com/watch?v=ukM_zzrIeXs)
-[Octal Notation] (https://medium.com/@thapavishal117/linux-permissions-using-numbers-known-as-octal-notation-2081f554c645)
-[Memória Compartilhada] (https://www.youtube.com/watch?v=WgVSq-sgHOc)
+- [Vídeo tutorial de pthreads] (https://www.youtube.com/watch?v=ldJ8WGZVXZk&t=305s)
+- [Vídeo tutorial de pthreads com Mutex] (https://www.youtube.com/watch?v=raLCgPK-Igc)
+- [Argumentos em linha de comando] (https://www.geeksforgeeks.org/cpp/command-line-arguments-in-c-cpp/)
+- [Processo e Semáfaros] (https://www.youtube.com/watch?v=ukM_zzrIeXs)
+- [Octal Notation] (https://medium.com/@thapavishal117/linux-permissions-using-numbers-known-as-octal-notation-2081f554c645)
+- [Memória Compartilhada] (https://www.youtube.com/watch?v=WgVSq-sgHOc)

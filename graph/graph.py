@@ -20,6 +20,14 @@ P1_arm = np.array([0.732, 0.340, 0.212])
 P2_arm = np.array([3067.7, 2323.0, 3292.94])  # segundos
 
 # =========================
+# DADOS CODESPACES
+# =========================
+T1_codespace = np.array([2.682, 2.776, 2.876])
+T2_codespace = np.array([25.724, 25.643, 27.689])
+P1_codespace = np.array([2.879, 2.919, 2.546])
+P2_codespace = np.array([25.787, 43.734, 121.016])  # segundos
+
+# =========================
 # FUNÇÃO DE PLOT
 # =========================
 def plot_graph(T1, T2, P1, P2, title, filename):
@@ -78,3 +86,7 @@ plot_graph(T1_x86, T2_x86, P1_x86, P2_x86,
 plot_graph(T1_arm, T2_arm, P1_arm, P2_arm,
            'Escalabilidade - ARM',
            'grafico_arm.png')
+
+plot_graph(T1_codespace, T2_codespace, P1_codespace, P2_codespace,
+           'Escalabilidade - Codespaces',
+           'grafico_codespaces.png')

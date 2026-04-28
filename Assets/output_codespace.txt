@@ -1,0 +1,72 @@
+./threads_no_mutex 2
+Contador final: 623217670
+
+real    0m2.682s
+user    0m4.031s
+sys     0m0.009s
+./threads_no_mutex 4
+Contador final: 346791097
+
+real    0m2.776s
+user    0m4.436s
+sys     0m0.008s
+./threads_no_mutex 8
+Contador final: 220474219
+
+real    0m2.876s
+user    0m4.519s
+sys     0m0.008s
+./threads_mutex 2
+Contador final: 1000000000
+
+real    0m25.724s
+user    0m18.520s
+sys     0m21.807s
+./threads_mutex 4
+Contador final: 1000000000
+
+real    0m25.643s
+user    0m18.817s
+sys     0m22.058s
+./threads_mutex 8
+Contador final: 1000000000
+
+real    0m27.689s
+user    0m20.067s
+sys     0m24.469s
+./processes_free 2
+Contador final: 549925224
+
+real    0m2.879s
+user    0m4.467s
+sys     0m0.010s
+./processes_free 4
+Contador final: 289638921
+
+real    0m2.919s
+user    0m4.742s
+sys     0m0.021s
+./processes_free 8
+Contador final: 177732824
+
+real    0m2.546s
+user    0m3.681s
+sys     0m0.029s
+./process_sem 2
+Contador final: 1000000000
+
+real    0m25.787s
+user    0m16.610s
+sys     0m24.878s
+./process_sem 4
+Contador final: 1000000000
+
+real    0m43.734s
+user    0m20.651s
+sys     0m49.143s
+./process_sem 8
+Contador final: 1000000000
+
+real    2m1.016s
+user    0m38.309s
+sys     2m35.318s
