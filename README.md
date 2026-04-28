@@ -192,8 +192,6 @@ nível de concorrência.
 
 ## Observações técnicas
 
-## Observações técnicas
-
 Os valores `0644` e `0666` representam permissões de acesso no padrão Unix, expressas em notação octal, sendo utilizados para
 definir quem pode ler ou escrever em recursos do sistema, como semáforos e memória compartilhada. Cada dígito corresponde,
 respectivamente, ao dono, grupo e outros usuários. O valor `0644` concede permissão de leitura e escrita ao dono (6 = 4 + 2),
